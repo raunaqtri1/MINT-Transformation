@@ -3,6 +3,7 @@
 
 from .readers.read_func import ReadFunc
 from .readers.dcat_read_func import DcatReadFunc
+from .readers.dcat_read_stream import DcatReadStream
 from .readers.dcat_read_no_repr import DcatReadNoReprFunc
 # from .trans_unit_func import UnitTransFunc
 from .writers.write_func import CSVWriteFunc

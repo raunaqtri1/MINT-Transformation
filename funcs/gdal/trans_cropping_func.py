@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import os
+import glob
 import uuid
 from dtran.argtype import ArgType
 from dtran.backend import ShardedBackend
 from dtran.ifunc import IFunc, IFuncType
 from drepr import outputs
+from drepr.executors.readers.reader_container import ReaderContainer
 from funcs.gdal.raster import Raster, GeoTransform, BoundingBox, ReSample
 from funcs.gdal.raster_to_dataset import raster_to_dataset
 import fiona
@@ -134,7 +136,7 @@ class CroppingTransFunc(IFunc):
                     data.data,
                     gt,
                     int(gt_info.s(mint_geo_ns.epsg)),
-                    data.nodata.value if data.nodata is not None else None,
+                    data.nodata.value.item() if data.nodata is not None else None,
                 )
                 rasters.append({"raster": raster, "timestamp": timestamp, "variable_name": var_name})
 
@@ -159,29 +161,41 @@ class CroppingTransFunc(IFunc):
         self.rasters = CroppingTransFunc.extract_raster(self.dataset, self.variable_name)
         bb = BoundingBox(x_min=self.xmin, y_min=self.ymin, x_max=self.xmax, y_max=self.ymax)
 
-        self.results = ShardedBackend(len(self.rasters))
+        results = []
         for r in self.rasters:
             cropped_raster = r["raster"].crop(bounds=bb, resampling_algo=ReSample.BILINEAR)
-            self.results.add(raster_to_dataset(cropped_raster, r["variable_name"], self.results.inject_class_id,
-                                               timestamp=r["timestamp"], region_label=self.region_label))
+            if cropped_raster is None:
+                continue
+            results.append(raster_to_dataset(cropped_raster, r["variable_name"], timestamp=r["timestamp"], region_label=self.region_label))
+        assert len(results) > 0, "No overlapping data for the given region"
+        self.results = ShardedBackend(len(results))
+        for result, temp_file in results:
+            self.results.add(result(self.results.inject_class_id))
+            ReaderContainer.get_instance().delete(temp_file)
 
     def _crop_shape_dataset(self):
         self.rasters = CroppingTransFunc.extract_raster(self.dataset, self.variable_name)
         self.shapes = CroppingTransFunc.extract_shape(self.shape_sm)
 
-        self.results = ShardedBackend(len(self.rasters) * len(self.shapes))
+        results = []
         for r in self.rasters:
             for shape in self.shapes:
-                tempfile_name = f"/tmp/{uuid.uuid4()}.shp"
+                tempfile_name = f"./tmp/{uuid.uuid4()}.shp"
                 CroppingTransFunc.shape_array_to_shapefile(shape, tempfile_name)
                 cropped_raster = r["raster"].crop(
-                    vector_file=tempfile_name, resampling_algo=ReSample.BILINEAR
+                    vector_file=tempfile_name, resampling_algo=ReSample.BILINEAR, touch_cutline=True
                 )
-                os.remove(tempfile_name)
+                for f in glob.glob(f"{tempfile_name[:-4]}*"):
+                    os.remove(f)
+                if cropped_raster is None:
+                    continue
                 place = shape['place']
-                self.results.add(
-                    raster_to_dataset(cropped_raster, r["variable_name"], self.results.inject_class_id, place=place,
-                                      timestamp=r["timestamp"]))
+                results.append(raster_to_dataset(cropped_raster, r["variable_name"], place=place, timestamp=r["timestamp"]))
+        assert len(results) > 0, "No overlapping data for the given region"
+        self.results = ShardedBackend(len(results))
+        for result, temp_file in results:
+            self.results.add(result(self.results.inject_class_id))
+            ReaderContainer.get_instance().delete(temp_file)
 
     def crop_shape_shardedbackend(self):
         # TODO Stub for sharded backend later

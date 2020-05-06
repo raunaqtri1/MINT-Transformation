@@ -1,12 +1,19 @@
 version: "1"
 adapters:
+  gpm_read_stream:
+    comment: My gpm read stream adapter
+    adapter: funcs.DcatReadStream
+    inputs:
+      start_time: "2011-01-01 00:00:00"
+      end_time: "2011-01-02 00:00:00"
   gpm_read_func:
     comment: My gpm read func adapter
     adapter: funcs.DcatReadFunc
     inputs:
-      dataset_id: ea0e86f3-9470-4e7e-a581-df85b4a7075d
-      start_time: "2018-01-01 00:00:00"
-      end_time: "2018-03-01 00:00:00"
+#      dataset_id: ea0e86f3-9470-4e7e-a581-df85b4a7075d
+      dataset_id: 5babae3f-c468-4e01-862e-8b201468e3b5
+      start_time: $.gpm_read_stream.start_time
+      end_time: $.gpm_read_stream.end_time
   shapefile_read_func:
     comment: My shape file read func adapter
     adapter: funcs.DcatReadFunc
@@ -17,14 +24,20 @@ adapters:
     adapter: funcs.CroppingTransFunc
     inputs:
       variable_name: atmosphere_water__precipitation_mass_flux
+#      variable_name: land_surface_air__temperature
       dataset: $.gpm_read_func.data
       shape: $.shapefile_read_func.data
+#      xmin: 32.75418
+#      ymin: 3.22206
+#      xmax: 47.98942
+#      ymax: 15.15943
+#      region_label: ethiopia
   agg_by_time_place:
     adapter: funcs.aggregations.variable_aggregation_func.VariableAggregationFunc
     inputs:
       dataset: $.my_crop_func.data
       group_by:
-        - { prop: "mint:timestamp", value: exact }
+        - { prop: "mint:timestamp", value: day }
         - { prop: "mint:place", value: exact }
       function: average
   my_writer:
