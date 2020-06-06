@@ -3,6 +3,7 @@
 from collections import Counter
 from pathlib import Path
 from typing import *
+import gc
 
 from inspect import isasyncgenfunction, isgeneratorfunction, signature
 from asyncio import Event, gather, get_event_loop
@@ -187,6 +188,7 @@ class Pipeline(object):
 
         # looping Async Generator Adapter
         async for result in func.exec():
+            print("yield", func_cls.id, self.idx2order[i], result)
             wired = []
             for argname in func_cls.outputs.keys():
                 output_gname = WiredIOArg.get_arg_name(func_cls.id, self.idx2order[i], argname)
@@ -290,6 +292,7 @@ def default_wrapper(cls: Type[IFunc], inputs: Set[str]) -> Type[IFunc]:
                 else:
                     yield func.exec()
                 # if there are no wired inputs, break out to avoid looping infinitely
+                # gc.collect()
                 if len(inputs) == 0:
                     break
 

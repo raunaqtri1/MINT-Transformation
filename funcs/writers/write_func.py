@@ -46,7 +46,7 @@ class CSVWriteFunc(IFunc):
 
     def exec(self) -> dict:
         data_tuples, attr_names = self.tabularize_data()
-        print("Finish tabularizing")
+        # print("Finish tabularizing")
         if self.output_file.suffix == ".csv":
             CSVWriteFunc._dump_to_csv(data_tuples, attr_names, self.output_file)
         elif self.output_file.suffix == ".json":

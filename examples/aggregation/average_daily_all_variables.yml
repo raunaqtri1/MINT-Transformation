@@ -15,7 +15,7 @@ inputs:
     value: '2011-01-01 00:00:00'
   range_end_time:
     comment: End time to filter Resources for DataCatalog GLDAS Dataset (can also be "null" to leave this end open)
-    value: '2011-01-02 00:00:00'
+    value: '2012-01-01 00:00:00'
   range_step_time:
     comment: >-
       ISO 8601 duration string representing the step (or timedelta) to loop from range_start_time to range_end_time.
@@ -54,23 +54,3 @@ adapters:
     adapter: funcs.DcatVariableStream
     inputs:
       dataset_id: $$.gldas_dataset_id
-  my_crop_wrapper:
-    comment: My cropping func wrapper adapter
-    adapter: funcs.CroppingTransWrapper
-    inputs:
-      variable_name: $.gldas_variable_stream.variable_name
-      dataset: $.gldas_read_func.data
-      shape: $.shapefile_read_func.data
-  agg_by_time_place:
-    adapter: funcs.aggregations.variable_aggregation_func.VariableAggregationFunc
-    inputs:
-      dataset: $.my_crop_wrapper.data
-      group_by:
-        - { prop: "mint:timestamp", value: $$.agg_time_period }
-        - { prop: "mint:place", value: exact }
-      function: $$.agg_function
-  my_writer:
-    adapter: funcs.CSVWriteFunc
-    inputs:
-      data: $.agg_by_time_place.data
-      output_file: $$.csv_output_file
